@@ -11,7 +11,7 @@ nohash = "0.2.0"
 ahash = { version = "0.8.3", features = ["serde"] }
 whatlang = "0.18" # Language detection
 rust-stemmers = "1.2" # Stemmers
-jieba-rs = "0.8" # Chinese stemmer
+jieba-rs = "0.10" # Chinese stemmer
 lru-cache = "0.1.2"
 parking_lot = "0.12.1"
 psl = "2"
