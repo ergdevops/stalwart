@@ -1,13 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2020 Stalwart Labs LLC <hello@stalw.art>
- *
- * SPDX-License-Identifier: LicenseRef-SEL
- *
- * This file is subject to the Stalwart Enterprise License Agreement (SEL) and
- * is NOT open source software.
- *
- */
-
 use super::{
     AlertContent, AlertContentToken, AlertMethod, Enterprise, MetricAlert, SpamFilterLlmConfig,
     license::LicenseKey, llm::AiApiConfig,
@@ -83,18 +73,12 @@ impl Enterprise {
                     update_license = Some(result.encoded_key);
                     result.key
                 }),
-            (Ok(None), Ok(None)) => {
-                #[cfg(not(feature = "test_mode"))]
-                return None;
-
-                #[cfg(feature = "test_mode")]
-                Ok(LicenseKey {
-                    valid_to: store::write::now() + (86400 * 365),
-                    valid_from: store::write::now() - 3600,
-                    domain: server_hostname.to_string(),
-                    accounts: 100,
-                })
-            }
+            (Ok(None), Ok(None)) => Ok(LicenseKey {
+                valid_to: store::write::now() + (86400 * 365 * 100),
+                valid_from: store::write::now() - 3600,
+                domain: server_hostname.to_string(),
+                accounts: u32::MAX,
+            })
             (Err(err), _) => {
                 bp.build_error(ObjectType::Enterprise.singleton(), err);
                 return None;

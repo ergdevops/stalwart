@@ -1,13 +1,3 @@
-/*
- * SPDX-FileCopyrightText: 2020 Stalwart Labs LLC <hello@stalw.art>
- *
- * SPDX-License-Identifier: LicenseRef-SEL
- *
- * This file is subject to the Stalwart Enterprise License Agreement (SEL) and
- * is NOT open source software.
- *
- */
-
 pub mod alerts;
 pub mod config;
 pub mod license;
@@ -92,9 +82,7 @@ pub enum AlertContentToken {
 
 impl Core {
     pub fn is_enterprise_edition(&self) -> bool {
-        self.enterprise
-            .as_ref()
-            .is_some_and(|e| !e.license.is_expired())
+        true
     }
 }
 
@@ -114,10 +102,7 @@ impl Server {
     }
 
     pub fn licensed_accounts(&self) -> u32 {
-        self.core
-            .enterprise
-            .as_ref()
-            .map_or(0, |e| e.license.accounts)
+        u32::MAX
     }
 
     pub fn log_license_details(&self) {
@@ -135,31 +120,14 @@ impl Server {
     }
 
     pub async fn can_create_account(&self) -> trc::Result<bool> {
-        if let Some(enterprise) = &self.core.enterprise {
-            let total_accounts = self.total_accounts().await.caused_by(trc::location!())?;
-
-            if total_accounts + 1 > enterprise.license.accounts as usize {
-                trc::event!(
-                    Server(trc::ServerEvent::Licensing),
-                    Details = "Account creation not possible: license key account limit reached",
-                    Domain = enterprise.license.domain.clone(),
-                    Total = total_accounts,
-                    Limit = enterprise.license.accounts,
-                );
-
-                return Ok(false);
-            }
-        }
-
         Ok(true)
     }
 
     pub async fn logo_resource(&self, domain: &str) -> trc::Result<Option<Resource<Vec<u8>>>> {
         const MAX_IMAGE_SIZE: usize = 1024 * 1024;
 
-        if !self.is_enterprise_edition() {
-            return Ok(None);
-        }
+        // Enterprise features unlocked - logo always available
+
 
         let mut domain = psl::domain_str(domain).unwrap_or(domain);
         let logo_cache = { self.inner.data.logos.lock().get(domain).cloned() };
