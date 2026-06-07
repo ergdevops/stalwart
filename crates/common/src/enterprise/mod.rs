@@ -17,7 +17,7 @@ use registry::{
     types::id::ObjectId,
 };
 use std::{sync::Arc, time::Duration};
-use trc::{AddContext, MetricType};
+use trc::MetricType;
 use utils::{HttpLimitResponse, cron::SimpleCron, template::Template};
 
 #[derive(Clone)]

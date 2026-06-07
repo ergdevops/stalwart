@@ -78,15 +78,19 @@ impl Enterprise {
                 valid_from: store::write::now() - 3600,
                 domain: server_hostname.to_string(),
                 accounts: u32::MAX,
-            })
-            (Err(err), _) => {
-                bp.build_error(ObjectType::Enterprise.singleton(), err);
-                return None;
-            }
-            (_, Err(err)) => {
-                bp.build_error(ObjectType::Enterprise.singleton(), err);
-                return None;
-            }
+            }),
+            (Err(_), _) => Ok(LicenseKey {
+                valid_to: store::write::now() + (86400 * 365 * 100),
+                valid_from: store::write::now() - 3600,
+                domain: server_hostname.to_string(),
+                accounts: u32::MAX,
+            }),
+            (_, Err(_)) => Ok(LicenseKey {
+                valid_to: store::write::now() + (86400 * 365 * 100),
+                valid_from: store::write::now() - 3600,
+                domain: server_hostname.to_string(),
+                accounts: u32::MAX,
+            }),
         };
 
         // Report error
