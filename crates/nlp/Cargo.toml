@@ -17,7 +17,7 @@ parking_lot = "0.12.1"
 psl = "2"
 maplit = "1.0.2"
 hashify = "0.2.1"
-rand = "0.9.2"
+rand = "0.10.1"
 rkyv = { version = "0.8.10", features = ["little_endian"] }
 
 [features]
