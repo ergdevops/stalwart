@@ -477,3 +477,89 @@ fn push_message_body(topic: &str) -> String {
         topic
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use p256::{ecdh::EphemeralSecret, elliptic_curve::sec1::ToEncodedPoint};
+    use store::write::now;
+
+    #[test]
+    fn push_topic_is_deterministic_and_url_safe() {
+        let a = push_topic(5, u8::from(SyncCollection::Calendar), 42);
+        let b = push_topic(5, u8::from(SyncCollection::Calendar), 42);
+        assert_eq!(a, b);
+        // Differs by any component.
+        assert_ne!(a, push_topic(6, u8::from(SyncCollection::Calendar), 42));
+        assert_ne!(a, push_topic(5, u8::from(SyncCollection::AddressBook), 42));
+        assert_ne!(a, push_topic(5, u8::from(SyncCollection::Calendar), 43));
+        // 9 bytes -> 12 url-safe base64 chars, no padding/url-unsafe symbols.
+        assert_eq!(a.len(), 12);
+        assert!(a.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+    }
+
+    #[test]
+    fn decode_base64_accepts_common_alphabets() {
+        let bytes = [0u8, 1, 2, 250, 251, 255];
+        for encoded in [
+            URL_SAFE_NO_PAD.encode(bytes),
+            URL_SAFE.encode(bytes),
+            STANDARD.encode(bytes),
+            STANDARD_NO_PAD.encode(bytes),
+        ] {
+            assert_eq!(decode_base64(&encoded).as_deref(), Some(&bytes[..]));
+        }
+        assert!(decode_base64("***not base64***").is_none());
+    }
+
+    #[test]
+    fn parse_expires_defaults_and_clamps() {
+        let current_time = now();
+
+        // Absent -> default lifetime.
+        let default = parse_expires(None);
+        assert!(default > current_time);
+        assert!(default <= current_time + DEFAULT_SUBSCRIPTION_TTL_SECS + 5);
+
+        // Unparsable / past dates fall back to the default lifetime.
+        assert!(parse_expires(Some("not a date")) > current_time);
+        let past = chrono::Utc::now() - chrono::Duration::days(1);
+        assert!(parse_expires(Some(&past.to_rfc2822())) > current_time);
+
+        // Excessive expiry is clamped to the maximum lifetime.
+        let far = chrono::Utc::now() + chrono::Duration::days(3650);
+        let clamped = parse_expires(Some(&far.to_rfc2822()));
+        assert!(clamped <= current_time + MAX_SUBSCRIPTION_TTL_SECS + 5);
+
+        // A reasonable future date is honoured.
+        let soon = chrono::Utc::now() + chrono::Duration::days(7);
+        let honoured = parse_expires(Some(&soon.to_rfc2822()));
+        assert!(honoured > current_time + 6 * 24 * 60 * 60);
+        assert!(honoured < current_time + 8 * 24 * 60 * 60);
+    }
+
+    #[test]
+    fn ece_encrypt_produces_valid_aes128gcm_header() {
+        // A throwaway client keypair to act as the subscription public key.
+        let client_secret = EphemeralSecret::random(&mut p256::elliptic_curve::rand_core::OsRng);
+        let p256dh = client_secret.public_key().to_encoded_point(false);
+        let p256dh = p256dh.as_bytes();
+        let auth = [7u8; 16];
+
+        let payload = crate::network::ece::ece_encrypt(p256dh, &auth, b"hello").unwrap();
+
+        // aes128gcm header: salt(16) | rs:u32 (4) | idlen:u8 (1) | keyid(65) | ciphertext+tag
+        assert!(payload.len() > 16 + 4 + 1 + 65 + 16);
+        assert_eq!(u32::from_be_bytes(payload[16..20].try_into().unwrap()), 4096);
+        assert_eq!(payload[20], 65);
+        // The embedded key id is an uncompressed SEC1 point (0x04 prefix).
+        assert_eq!(payload[21], 0x04);
+    }
+
+    #[test]
+    fn push_message_body_contains_topic() {
+        let body = push_message_body("abc-_123");
+        assert!(body.contains("<P:topic>abc-_123</P:topic>"));
+        assert!(body.contains("xmlns:P=\"https://bitfire.at/webdav-push\""));
+    }
+}

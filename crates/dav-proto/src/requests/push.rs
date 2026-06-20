@@ -131,3 +131,53 @@ fn parse_depth(value: &str) -> PushDepth {
         _ => PushDepth::One,
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parse_push_register() {
+        let xml = r#"<?xml version="1.0" encoding="utf-8" ?>
+            <push-register xmlns="https://bitfire.at/webdav-push" xmlns:D="DAV:">
+              <subscription>
+                <web-push-subscription>
+                  <push-resource>https://up.example.net/yohd4yai5Phai0mohzo</push-resource>
+                  <content-encoding>aes128gcm</content-encoding>
+                  <subscription-public-key>BPveelDib9Qf1jp_Pp4=</subscription-public-key>
+                  <auth-secret>Bhdt8a2Tg_g=</auth-secret>
+                </web-push-subscription>
+              </subscription>
+              <trigger>
+                <content-update><D:depth>1</D:depth></content-update>
+                <property-update><D:depth>0</D:depth></property-update>
+              </trigger>
+              <expires>Wed, 20 Dec 2023 10:03:31 GMT</expires>
+            </push-register>"#;
+
+        let register = PushRegister::parse(&mut Tokenizer::new(xml.as_bytes())).unwrap();
+
+        assert_eq!(
+            register.push_resource.as_deref(),
+            Some("https://up.example.net/yohd4yai5Phai0mohzo")
+        );
+        assert_eq!(register.content_encoding.as_deref(), Some("aes128gcm"));
+        assert_eq!(
+            register.subscription_public_key.as_deref(),
+            Some("BPveelDib9Qf1jp_Pp4=")
+        );
+        assert_eq!(register.auth_secret.as_deref(), Some("Bhdt8a2Tg_g="));
+        assert_eq!(register.content_update, Some(PushDepth::One));
+        assert_eq!(register.property_update, Some(PushDepth::Zero));
+        assert_eq!(
+            register.expires.as_deref(),
+            Some("Wed, 20 Dec 2023 10:03:31 GMT")
+        );
+    }
+
+    #[test]
+    fn parse_empty_body_is_tolerated() {
+        let register = PushRegister::parse(&mut Tokenizer::new(b"")).unwrap();
+        assert_eq!(register, PushRegister::default());
+    }
+}

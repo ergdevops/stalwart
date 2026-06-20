@@ -191,3 +191,51 @@ fn json_string(value: &str) -> String {
     out.push('"');
     out
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_keypair() -> VapidKeyPair {
+        let der = EcdsaKeyPair::generate_pkcs8(
+            &ECDSA_P256_SHA256_FIXED_SIGNING,
+            &SystemRandom::new(),
+        )
+        .unwrap();
+        VapidKeyPair::from_pkcs8(der.as_ref()).unwrap()
+    }
+
+    #[test]
+    fn from_pkcs8_exposes_url_safe_public_key() {
+        let key = test_keypair();
+        let public = key.public_key();
+        assert!(!public.is_empty());
+        assert!(public.chars().all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_'));
+        // Uncompressed SEC1 P-256 point: 65 bytes -> base64url decodes back.
+        assert_eq!(URL_SAFE_NO_PAD.decode(public).unwrap().len(), 65);
+    }
+
+    #[test]
+    fn sign_jwt_is_three_base64url_segments() {
+        let key = test_keypair();
+        let jwt = key
+            .sign_jwt("https://push.example", "mailto:admin@example.org", 12345)
+            .unwrap();
+        let segments: Vec<&str> = jwt.split('.').collect();
+        assert_eq!(segments.len(), 3);
+        for segment in segments {
+            assert!(!segment.is_empty());
+            assert!(URL_SAFE_NO_PAD.decode(segment).is_ok());
+        }
+    }
+
+    #[test]
+    fn authorization_header_has_vapid_scheme() {
+        let key = test_keypair();
+        let header = key
+            .authorization_header("https://push.example", "mailto:admin@example.org", 12345)
+            .unwrap();
+        assert!(header.starts_with("vapid t="));
+        assert!(header.contains(&format!(", k={}", key.public_key())));
+    }
+}
