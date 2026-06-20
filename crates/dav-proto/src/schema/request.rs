@@ -6,7 +6,7 @@
 
 use super::{
     Collation, MatchType,
-    property::{DavProperty, DavValue, LockScope, LockType},
+    property::{DavProperty, DavValue, LockScope, LockType, PushDepth},
     response::Ace,
 };
 use crate::{Condition, Depth};
@@ -27,6 +27,29 @@ pub enum PropFind {
     PropName,
     AllProp(Vec<DavProperty>),
     Prop(Vec<DavProperty>),
+}
+
+/// WebDAV-Push subscription registration request (`<push-register>`),
+/// see <https://bitfire.at/webdav-push>. All fields are optional at the parsing
+/// stage; validation (and the corresponding `invalid-subscription` /
+/// `no-trigger-supported` preconditions) is performed by the request handler.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(test, derive(serde::Serialize, serde::Deserialize))]
+pub struct PushRegister {
+    /// Absolute URI of the Web Push resource (subscription endpoint).
+    pub push_resource: Option<String>,
+    /// Message encoding, currently only `aes128gcm`.
+    pub content_encoding: Option<String>,
+    /// User-agent public key (`p256dh`), base64url uncompressed.
+    pub subscription_public_key: Option<String>,
+    /// Authentication secret, base64url.
+    pub auth_secret: Option<String>,
+    /// Requested content-update trigger depth (if present).
+    pub content_update: Option<PushDepth>,
+    /// Requested property-update trigger depth (if present).
+    pub property_update: Option<PushDepth>,
+    /// Requested expiration (IMF-fixdate).
+    pub expires: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

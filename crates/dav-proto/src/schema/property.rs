@@ -27,7 +27,21 @@ pub enum DavProperty {
     CardDav(CardDavProperty),
     CalDav(CalDavProperty),
     Principal(PrincipalProperty),
+    Push(PushProperty),
     DeadProperty(DeadElementTag),
+}
+
+/// WebDAV-Push collection properties (<https://bitfire.at/webdav-push>).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(test, serde(tag = "type", content = "data"))]
+pub enum PushProperty {
+    /// Available push transports (e.g. `web-push`, with optional VAPID key).
+    Transports,
+    /// Server-wide unique identifier for the resource.
+    Topic,
+    /// Supported triggers (`content-update` / `property-update`).
+    SupportedTriggers,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -173,7 +187,35 @@ pub enum DavValue {
     DeadProperty(DeadProperty),
     SupportedAddressData,
     SupportedCalendarData,
+    /// WebDAV-Push `transports` value: lists `web-push` with an optional
+    /// base64url-encoded VAPID public key (`p256ecdsa`).
+    PushTransports {
+        vapid_public_key: Option<String>,
+    },
+    /// WebDAV-Push `supported-triggers` value.
+    PushSupportedTriggers {
+        content_update_depth: Option<PushDepth>,
+        property_update_depth: Option<PushDepth>,
+    },
     Null,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(test, derive(serde::Serialize, serde::Deserialize))]
+pub enum PushDepth {
+    Zero,
+    One,
+    Infinity,
+}
+
+impl PushDepth {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            PushDepth::Zero => "0",
+            PushDepth::One => "1",
+            PushDepth::Infinity => "infinity",
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -15,6 +15,7 @@ pub mod lockinfo;
 pub mod mkcol;
 pub mod propertyupdate;
 pub mod propfind;
+pub mod push;
 pub mod report;
 
 impl DavParser for DeadProperty {

@@ -84,6 +84,9 @@ impl Display for Namespaces {
         if self.cs {
             f.write_str(" xmlns:C=\"http://calendarserver.org/ns/\"")?;
         }
+        if self.push {
+            f.write_str(" xmlns:P=\"https://bitfire.at/webdav-push\"")?;
+        }
         Ok(())
     }
 }

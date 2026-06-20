@@ -17,6 +17,7 @@ const NAMESPACE: Namespaces = Namespaces {
     cal: true,
     card: false,
     cs: false,
+    push: false,
 };
 
 impl Display for ScheduleResponse {

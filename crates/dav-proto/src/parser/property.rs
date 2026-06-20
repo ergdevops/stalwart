@@ -9,7 +9,7 @@ use crate::schema::{
     Attribute, AttributeValue, Element, NamedElement, Namespace,
     property::{
         CalDavProperty, CalDavPropertyName, CalendarData, CardDavProperty, CardDavPropertyName,
-        Comp, DavProperty, DavValue, PrincipalProperty, ResourceType, WebDavProperty,
+        Comp, DavProperty, DavValue, PrincipalProperty, PushProperty, ResourceType, WebDavProperty,
     },
     request::{DavPropertyValue, VCardPropertyWithGroup},
     response::List,
@@ -591,6 +591,13 @@ impl DavProperty {
             }
             (Namespace::CalendarServer, Element::Getctag) => {
                 Some(DavProperty::WebDav(WebDavProperty::GetCTag))
+            }
+            (Namespace::Push, Element::Transports) => {
+                Some(DavProperty::Push(PushProperty::Transports))
+            }
+            (Namespace::Push, Element::Topic) => Some(DavProperty::Push(PushProperty::Topic)),
+            (Namespace::Push, Element::SupportedTriggers) => {
+                Some(DavProperty::Push(PushProperty::SupportedTriggers))
             }
             _ => None,
         }

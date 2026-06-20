@@ -11,8 +11,8 @@ use crate::{
         Namespace, Namespaces,
         property::{
             ActiveLock, CalDavProperty, CardDavProperty, Comp, DavProperty, DavValue,
-            LockDiscovery, LockEntry, PrincipalProperty, Privilege, ReportSet, ResourceType,
-            Rfc1123DateTime, SupportedCollation, SupportedLock, WebDavProperty,
+            LockDiscovery, LockEntry, PrincipalProperty, Privilege, PushProperty, ReportSet,
+            ResourceType, Rfc1123DateTime, SupportedCollation, SupportedLock, WebDavProperty,
         },
         request::DavPropertyValue,
         response::{Ace, AclRestrictions, Href, List, PropResponse, SupportedPrivilege},
@@ -121,6 +121,37 @@ impl Display for DavValue {
                 )
             }
             DavValue::Response(v) => v.fmt(f),
+            DavValue::PushTransports { vapid_public_key } => {
+                f.write_str("<P:web-push>")?;
+                if let Some(key) = vapid_public_key {
+                    write!(
+                        f,
+                        "<P:vapid-public-key type=\"p256ecdsa\">{}</P:vapid-public-key>",
+                        key
+                    )?;
+                }
+                f.write_str("</P:web-push>")
+            }
+            DavValue::PushSupportedTriggers {
+                content_update_depth,
+                property_update_depth,
+            } => {
+                if let Some(depth) = content_update_depth {
+                    write!(
+                        f,
+                        "<P:content-update><D:depth>{}</D:depth></P:content-update>",
+                        depth.as_str()
+                    )?;
+                }
+                if let Some(depth) = property_update_depth {
+                    write!(
+                        f,
+                        "<P:property-update><D:depth>{}</D:depth></P:property-update>",
+                        depth.as_str()
+                    )?;
+                }
+                Ok(())
+            }
             DavValue::VCard(_) | DavValue::ICalendar(_) | DavValue::Null => Ok(()),
         }
     }
@@ -216,6 +247,11 @@ impl DavProperty {
                     PrincipalProperty::ScheduleInboxURL => "A:schedule-inbox-URL",
                     PrincipalProperty::ScheduleOutboxURL => "A:schedule-outbox-URL",
                 },
+                DavProperty::Push(prop) => match prop {
+                    PushProperty::Transports => "P:transports",
+                    PushProperty::Topic => "P:topic",
+                    PushProperty::SupportedTriggers => "P:supported-triggers",
+                },
                 DavProperty::DeadProperty(dead) => {
                     return (dead.name.as_str(), dead.attrs.as_deref());
                 }
@@ -226,6 +262,7 @@ impl DavProperty {
 
     pub fn namespace(&self) -> Namespace {
         match self {
+            DavProperty::Push(_) => Namespace::Push,
             DavProperty::WebDav(WebDavProperty::GetCTag) => Namespace::CalendarServer,
             DavProperty::CardDav(_)
             | DavProperty::Principal(PrincipalProperty::AddressbookHomeSet) => Namespace::CardDav,

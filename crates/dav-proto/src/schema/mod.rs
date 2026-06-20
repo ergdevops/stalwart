@@ -26,6 +26,7 @@ pub enum Namespace {
     CalDav,
     CardDav,
     CalendarServer,
+    Push,
 }
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -34,6 +35,7 @@ pub struct Namespaces {
     pub(crate) cal: bool,
     pub(crate) card: bool,
     pub(crate) cs: bool,
+    pub(crate) push: bool,
 }
 
 impl Namespaces {
@@ -42,6 +44,7 @@ impl Namespaces {
             Namespace::CalDav => self.cal = true,
             Namespace::CardDav => self.card = true,
             Namespace::CalendarServer => self.cs = true,
+            Namespace::Push => self.push = true,
             Namespace::Dav => {}
         }
     }
@@ -54,7 +57,8 @@ impl Namespace {
             "urn:ietf:params:xml:ns:caldav" => Namespace::CalDav,
             "urn:ietf:params:xml:ns:carddav" => Namespace::CardDav,
             "http://calendarserver.org/ns/" => Namespace::CalendarServer,
-            "http://calendarserver.org/ns" => Namespace::CalendarServer
+            "http://calendarserver.org/ns" => Namespace::CalendarServer,
+            "https://bitfire.at/webdav-push" => Namespace::Push
         )
     }
 
@@ -64,6 +68,7 @@ impl Namespace {
             Namespace::CalDav => "A",
             Namespace::CardDav => "B",
             Namespace::CalendarServer => "C",
+            Namespace::Push => "P",
         }
     }
 
@@ -73,6 +78,7 @@ impl Namespace {
             Namespace::CalDav => "urn:ietf:params:xml:ns:caldav",
             Namespace::CardDav => "urn:ietf:params:xml:ns:carddav",
             Namespace::CalendarServer => "http://calendarserver.org/ns/",
+            Namespace::Push => "https://bitfire.at/webdav-push",
         }
     }
 }
@@ -460,6 +466,27 @@ pub enum Element {
     WriteAcl,
     WriteContent,
     WriteProperties,
+    // WebDAV-Push (https://bitfire.at/webdav-push)
+    Transports,
+    WebPush,
+    VapidPublicKey,
+    Topic,
+    SupportedTriggers,
+    ContentUpdate,
+    PropertyUpdate,
+    PushRegister,
+    Subscription,
+    WebPushSubscription,
+    PushResource,
+    ContentEncoding,
+    SubscriptionPublicKey,
+    AuthSecret,
+    Trigger,
+    Expires,
+    PushMessage,
+    InvalidSubscription,
+    PushNotAvailable,
+    NoTriggerSupported,
 }
 
 impl Element {
@@ -840,6 +867,26 @@ impl Element {
             "write-acl" => Element::WriteAcl,
             "write-content" => Element::WriteContent,
             "write-properties" => Element::WriteProperties,
+            "transports" => Element::Transports,
+            "web-push" => Element::WebPush,
+            "vapid-public-key" => Element::VapidPublicKey,
+            "topic" => Element::Topic,
+            "supported-triggers" => Element::SupportedTriggers,
+            "content-update" => Element::ContentUpdate,
+            "property-update" => Element::PropertyUpdate,
+            "push-register" => Element::PushRegister,
+            "subscription" => Element::Subscription,
+            "web-push-subscription" => Element::WebPushSubscription,
+            "push-resource" => Element::PushResource,
+            "content-encoding" => Element::ContentEncoding,
+            "subscription-public-key" => Element::SubscriptionPublicKey,
+            "auth-secret" => Element::AuthSecret,
+            "trigger" => Element::Trigger,
+            "expires" => Element::Expires,
+            "push-message" => Element::PushMessage,
+            "invalid-subscription" => Element::InvalidSubscription,
+            "push-not-available" => Element::PushNotAvailable,
+            "no-trigger-supported" => Element::NoTriggerSupported,
         )
     }
 }
@@ -1225,6 +1272,26 @@ impl AsRef<str> for Element {
             Element::WriteAcl => "write-acl",
             Element::WriteContent => "write-content",
             Element::WriteProperties => "write-properties",
+            Element::Transports => "transports",
+            Element::WebPush => "web-push",
+            Element::VapidPublicKey => "vapid-public-key",
+            Element::Topic => "topic",
+            Element::SupportedTriggers => "supported-triggers",
+            Element::ContentUpdate => "content-update",
+            Element::PropertyUpdate => "property-update",
+            Element::PushRegister => "push-register",
+            Element::Subscription => "subscription",
+            Element::WebPushSubscription => "web-push-subscription",
+            Element::PushResource => "push-resource",
+            Element::ContentEncoding => "content-encoding",
+            Element::SubscriptionPublicKey => "subscription-public-key",
+            Element::AuthSecret => "auth-secret",
+            Element::Trigger => "trigger",
+            Element::Expires => "expires",
+            Element::PushMessage => "push-message",
+            Element::InvalidSubscription => "invalid-subscription",
+            Element::PushNotAvailable => "push-not-available",
+            Element::NoTriggerSupported => "no-trigger-supported",
         }
     }
 }
