@@ -34,6 +34,7 @@ pub mod mta;
 pub mod security;
 pub mod stream;
 pub mod tls;
+pub mod vapid;
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 pub enum RcptResolution {

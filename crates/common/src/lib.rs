@@ -162,6 +162,8 @@ pub struct Data {
     pub applications: WebApplications,
     pub logos: Mutex<AHashMap<Box<str>, LogoCache>>,
 
+    pub vapid_keys: Mutex<Option<Arc<crate::network::vapid::VapidKeyPair>>>,
+
     pub smtp_connectors: TlsConnectors,
 }
 
