@@ -40,8 +40,8 @@ use dav_proto::{
         Collation, Namespace,
         property::{
             ActiveLock, CalDavProperty, CardDavProperty, Comp, DavProperty, DavValue,
-            PrincipalProperty, Privilege, ReportSet, ResourceType, Rfc1123DateTime,
-            SupportedCollation, SupportedLock, WebDavProperty,
+            PrincipalProperty, Privilege, PushDepth, PushProperty, ReportSet, ResourceType,
+            Rfc1123DateTime, SupportedCollation, SupportedLock, WebDavProperty,
         },
         request::{DavDeadProperty, DavPropertyValue, PropFind},
         response::{
@@ -780,6 +780,47 @@ impl PropFindRequestHandler for Server {
                             ));
                         }
                     },
+                    DavProperty::Push(push_property) => {
+                        // WebDAV-Push is advertised for push-capable collections only.
+                        if item.is_container {
+                            match push_property {
+                                PushProperty::Transports => {
+                                    let vapid = self
+                                        .vapid_keypair()
+                                        .await
+                                        .caused_by(trc::location!())?;
+                                    fields.push(DavPropertyValue::new(
+                                        property.clone(),
+                                        DavValue::PushTransports {
+                                            vapid_public_key: Some(vapid.public_key().to_string()),
+                                        },
+                                    ));
+                                }
+                                PushProperty::Topic => {
+                                    fields.push(DavPropertyValue::new(
+                                        property.clone(),
+                                        DavValue::String(common::network::push::push_topic(
+                                            account_id,
+                                            sync_collection as u8,
+                                            document_id,
+                                        )),
+                                    ));
+                                }
+                                PushProperty::SupportedTriggers => {
+                                    fields.push(DavPropertyValue::new(
+                                        property.clone(),
+                                        DavValue::PushSupportedTriggers {
+                                            content_update_depth: Some(PushDepth::One),
+                                            property_update_depth: Some(PushDepth::Zero),
+                                        },
+                                    ));
+                                }
+                            }
+                        } else {
+                            fields_not_found.push(DavPropertyValue::empty(property.clone()));
+                        }
+                        response.set_namespace(Namespace::Push);
+                    }
                     DavProperty::DeadProperty(tag) => {
                         if let Some(value) =
                             dead_properties.and_then(|props| props.find_tag(&tag.name))
