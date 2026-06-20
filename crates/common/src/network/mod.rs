@@ -28,6 +28,7 @@ pub mod asn;
 pub mod autoconfig;
 pub mod dkim;
 pub mod dns;
+pub mod ece;
 pub mod limiter;
 pub mod listen;
 pub mod mta;

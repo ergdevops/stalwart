@@ -1237,6 +1237,7 @@ dependencies = [
 name = "common"
 version = "0.16.10"
 dependencies = [
+ "aes-gcm",
  "aes-gcm-siv",
  "ahash",
  "arc-swap",
@@ -1254,6 +1255,7 @@ dependencies = [
  "futures",
  "hashify",
  "hickory-proto",
+ "hkdf 0.13.0",
  "hostname",
  "hyper",
  "idna",

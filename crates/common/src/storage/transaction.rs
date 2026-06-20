@@ -31,6 +31,21 @@ impl Server {
 
         if let Some(changes) = builder.changes() {
             for (account_id, changed_collections) in changes {
+                // WebDAV-Push: notify subscribers of changed push-capable
+                // collections. Runs only on the writing node, so no cluster
+                // de-duplication is needed, and never blocks/fails the commit.
+                let dav_push_collections: Vec<SyncCollection> =
+                    [SyncCollection::Calendar, SyncCollection::AddressBook]
+                        .into_iter()
+                        .filter(|c| {
+                            changed_collections.changed_containers.contains(*c)
+                                || changed_collections.changed_items.contains(*c)
+                        })
+                        .collect();
+                if !dav_push_collections.is_empty() {
+                    self.notify_webdav_push(account_id, dav_push_collections);
+                }
+
                 let mut state_change = StateChange::new(account_id);
                 for changed_collection in changed_collections.changed_containers {
                     if let Some(data_type) = DataType::try_from_sync(changed_collection, true) {

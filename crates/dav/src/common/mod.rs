@@ -40,6 +40,7 @@ use uri::{OwnedUri, Urn};
 pub mod acl;
 pub mod lock;
 pub mod propfind;
+pub mod push;
 pub mod uri;
 
 #[derive(Debug)]

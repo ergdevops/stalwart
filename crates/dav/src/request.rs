@@ -24,6 +24,7 @@ use crate::{
         acl::DavAclHandler,
         lock::{LockRequest, LockRequestHandler},
         propfind::PropFindRequestHandler,
+        push::DavPushHandler,
         uri::DavUriResource,
     },
     file::{
@@ -52,7 +53,15 @@ use hyper::{StatusCode, header};
 use registry::schema::enums::Permission;
 use std::time::Instant;
 use trc::{EventType, LimitEvent, StoreEvent, WebDavEvent};
-use types::collection::Collection;
+use types::collection::{Collection, SyncCollection};
+
+/// Cheap detection of a WebDAV-Push `<P:push-register>` request body, used to
+/// route a `POST` on a collection to the push-registration handler instead of
+/// the normal update handler.
+fn is_push_register(body: &[u8]) -> bool {
+    body.windows(b"push-register".len())
+        .any(|w| w == b"push-register")
+}
 
 pub trait DavRequestHandler: Sync + Send {
     fn handle_dav_request(
@@ -148,7 +157,9 @@ impl DavRequestDispatcher for Server {
                     )
                     .await
                 }
-                DavResourceName::Principal => Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED)),
+                DavResourceName::Principal | DavResourceName::Push => {
+                    Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
+                }
             },
             DavMethod::REPORT => match Report::parse(&mut Tokenizer::new(&body))? {
                 Report::SyncCollection(sync_collection) => {
@@ -171,7 +182,7 @@ impl DavRequestDispatcher for Server {
                             )
                             .await
                         }
-                        DavResourceName::Principal => {
+                        DavResourceName::Principal | DavResourceName::Push => {
                             Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
                         }
                     }
@@ -319,7 +330,9 @@ impl DavRequestDispatcher for Server {
                             )
                             .await
                         }
-                        DavResourceName::Principal | DavResourceName::Scheduling => {
+                        DavResourceName::Principal
+                        | DavResourceName::Scheduling
+                        | DavResourceName::Push => {
                             Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
                         }
                     }
@@ -352,7 +365,9 @@ impl DavRequestDispatcher for Server {
                         self.handle_file_proppatch_request(&access_token, headers, request)
                             .await
                     }
-                    DavResourceName::Principal | DavResourceName::Scheduling => {
+                    DavResourceName::Principal
+                    | DavResourceName::Scheduling
+                    | DavResourceName::Push => {
                         Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
                     }
                 }
@@ -389,7 +404,9 @@ impl DavRequestDispatcher for Server {
                         self.handle_file_mkcol_request(&access_token, headers, request)
                             .await
                     }
-                    DavResourceName::Principal | DavResourceName::Scheduling => {
+                    DavResourceName::Principal
+                    | DavResourceName::Scheduling
+                    | DavResourceName::Push => {
                         Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
                     }
                 }
@@ -427,6 +444,9 @@ impl DavRequestDispatcher for Server {
                     self.handle_scheduling_delete_request(&access_token, headers)
                         .await
                 }
+                DavResourceName::Push => {
+                    self.handle_push_unregister(&access_token, headers).await
+                }
                 DavResourceName::Principal => Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED)),
             },
             DavMethod::PUT | DavMethod::POST | DavMethod::PATCH => match resource {
@@ -435,25 +455,45 @@ impl DavRequestDispatcher for Server {
                     let access_token =
                         access_token.assert_has_permission(Permission::DavCardPut)?;
 
-                    self.handle_card_update_request(
-                        &access_token,
-                        headers,
-                        body,
-                        matches!(method, DavMethod::PATCH),
-                    )
-                    .await
+                    if matches!(method, DavMethod::POST) && is_push_register(&body) {
+                        self.handle_push_register(
+                            &access_token,
+                            headers,
+                            SyncCollection::AddressBook,
+                            body,
+                        )
+                        .await
+                    } else {
+                        self.handle_card_update_request(
+                            &access_token,
+                            headers,
+                            body,
+                            matches!(method, DavMethod::PATCH),
+                        )
+                        .await
+                    }
                 }
                 DavResourceName::Cal => {
                     // Validate permissions
                     let access_token = access_token.assert_has_permission(Permission::DavCalPut)?;
 
-                    self.handle_calendar_update_request(
-                        &access_token,
-                        headers,
-                        body,
-                        matches!(method, DavMethod::PATCH),
-                    )
-                    .await
+                    if matches!(method, DavMethod::POST) && is_push_register(&body) {
+                        self.handle_push_register(
+                            &access_token,
+                            headers,
+                            SyncCollection::Calendar,
+                            body,
+                        )
+                        .await
+                    } else {
+                        self.handle_calendar_update_request(
+                            &access_token,
+                            headers,
+                            body,
+                            matches!(method, DavMethod::PATCH),
+                        )
+                        .await
+                    }
                 }
                 DavResourceName::File => {
                     // Validate permissions
@@ -476,7 +516,9 @@ impl DavRequestDispatcher for Server {
                     self.handle_scheduling_post_request(&access_token, headers, body)
                         .await
                 }
-                DavResourceName::Principal => Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED)),
+                DavResourceName::Principal | DavResourceName::Push => {
+                    Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
+                }
             },
             DavMethod::COPY | DavMethod::MOVE => {
                 let is_move = matches!(method, DavMethod::MOVE);
@@ -513,7 +555,9 @@ impl DavRequestDispatcher for Server {
                         self.handle_file_copy_move_request(&access_token, headers, is_move)
                             .await
                     }
-                    DavResourceName::Principal | DavResourceName::Scheduling => {
+                    DavResourceName::Principal
+                    | DavResourceName::Scheduling
+                    | DavResourceName::Push => {
                         Err(DavError::Code(StatusCode::METHOD_NOT_ALLOWED))
                     }
                 }
@@ -674,9 +718,9 @@ impl DavRequestHandler for Server {
                                         DavResourceName::Cal | DavResourceName::Scheduling => {
                                             Namespace::CalDav
                                         }
-                                        DavResourceName::File | DavResourceName::Principal => {
-                                            Namespace::Dav
-                                        }
+                                        DavResourceName::File
+                                        | DavResourceName::Principal
+                                        | DavResourceName::Push => Namespace::Dav,
                                     })
                                     .to_string(),
                             )
@@ -732,9 +776,9 @@ impl DavRequestHandler for Server {
                                 DavResourceName::Cal | DavResourceName::Scheduling => {
                                     Namespace::CalDav
                                 }
-                                DavResourceName::File | DavResourceName::Principal => {
-                                    Namespace::Dav
-                                }
+                                DavResourceName::File
+                                | DavResourceName::Principal
+                                | DavResourceName::Push => Namespace::Dav,
                             })
                             .to_string(),
                     )

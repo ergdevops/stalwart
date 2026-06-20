@@ -24,6 +24,9 @@ pub enum DavResourceName {
     File,
     Principal,
     Scheduling,
+    /// WebDAV-Push subscription management endpoint (registration URLs live
+    /// under this path so they can be `DELETE`d to unsubscribe).
+    Push,
 }
 
 pub const RFC_3986: &AsciiSet = &CONTROLS
@@ -67,6 +70,7 @@ impl DavResourceName {
             "file" => DavResourceName::File,
             "pal" => DavResourceName::Principal,
             "itip" => DavResourceName::Scheduling,
+            "push" => DavResourceName::Push,
         )
     }
 
@@ -77,6 +81,7 @@ impl DavResourceName {
             DavResourceName::File => "/dav/file",
             DavResourceName::Principal => "/dav/pal",
             DavResourceName::Scheduling => "/dav/itip",
+            DavResourceName::Push => "/dav/push",
         }
     }
 
@@ -87,6 +92,7 @@ impl DavResourceName {
             DavResourceName::File => "/dav/file/",
             DavResourceName::Principal => "/dav/pal/",
             DavResourceName::Scheduling => "/dav/itip/",
+            DavResourceName::Push => "/dav/push/",
         }
     }
 
@@ -97,6 +103,7 @@ impl DavResourceName {
             DavResourceName::File => "WebDAV",
             DavResourceName::Principal => "Principal",
             DavResourceName::Scheduling => "Scheduling",
+            DavResourceName::Push => "WebDAV-Push",
         }
     }
 }
@@ -109,6 +116,10 @@ impl From<DavResourceName> for Collection {
             DavResourceName::File => Collection::FileNode,
             DavResourceName::Principal => Collection::Principal,
             DavResourceName::Scheduling => Collection::CalendarEventNotification,
+            // WebDAV-Push has no backing collection; it is managed via opaque
+            // registration ids. Map to Principal as a harmless placeholder
+            // (push handlers never rely on this conversion).
+            DavResourceName::Push => Collection::Principal,
         }
     }
 }
